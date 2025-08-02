@@ -1,0 +1,34 @@
+package org.yaroslaavl.cvservice.database.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Data
+@Entity
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "cv", schema = "cv_data")
+public class UserCV {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(name = "uploaded_at", updatable = false)
+    private LocalDateTime uploadedAt;
+
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
+    @Column(name = "file_path", nullable = false)
+    private String filePath;
+
+    @PrePersist
+    public void setCreationDateTime() {
+        this.uploadedAt = LocalDateTime.now();
+    }
+}
