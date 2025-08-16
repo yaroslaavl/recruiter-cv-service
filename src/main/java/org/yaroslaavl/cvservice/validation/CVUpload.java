@@ -8,7 +8,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Target(ElementType.FIELD)
+@Target(ElementType.PARAMETER)
 @Retention(value = RetentionPolicy.RUNTIME)
 @Constraint(validatedBy = CVUploadValidator.class)
 public @interface CVUpload {

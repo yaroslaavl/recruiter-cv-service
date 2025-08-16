@@ -4,12 +4,11 @@ import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.web.multipart.MultipartFile;
-import org.yaroslaavl.cvservice.exception.EmptyPDFException;
 import org.yaroslaavl.cvservice.exception.InvalidTypeException;
 import org.yaroslaavl.cvservice.exception.NotPDFException;
 import org.yaroslaavl.cvservice.exception.NotReadableException;
+import org.yaroslaavl.cvservice.exception.PDFSizeException;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 
@@ -28,9 +27,9 @@ public class CVUploadValidator implements ConstraintValidator<CVUpload, Multipar
             throw new InvalidTypeException("Invalid type");
         }
 
-        try(var document = PDDocument.load((File) pdf)) {
-            if (document.getNumberOfPages() == 0) {
-                throw new EmptyPDFException("Empty file");
+        try (PDDocument document = PDDocument.load(pdf.getInputStream())) {
+            if (document.getNumberOfPages() == 0 || document.getNumberOfPages() > 5) {
+                throw new PDFSizeException("PDF is empty or too large. PDF size is " + document.getNumberOfPages());
             }
 
             return true;
