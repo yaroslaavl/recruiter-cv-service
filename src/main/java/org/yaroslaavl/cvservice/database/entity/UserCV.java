@@ -2,6 +2,7 @@ package org.yaroslaavl.cvservice.database.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -22,10 +23,14 @@ public class UserCV {
     private LocalDateTime uploadedAt;
 
     @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    private String userId;
 
     @Column(name = "file_path", nullable = false)
     private String filePath;
+
+    @ColumnDefault(value = "false")
+    @Column(name = "is_main", nullable = false)
+    private Boolean isMain;
 
     @PrePersist
     public void setCreationDateTime() {

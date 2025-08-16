@@ -17,13 +17,10 @@ public class MinioConfig {
     @Value("${minio.secretKey}")
     private String secretKey;
 
-    @Value("${minio.secure}")
-    private Boolean minioSecure;
-
     @Bean
     public MinioClient minioClient() {
         return MinioClient.builder()
-                .endpoint(minioUrl, 9000, minioSecure)
+                .endpoint(minioUrl)
                 .credentials(accessKey, secretKey)
                 .build();
     }
