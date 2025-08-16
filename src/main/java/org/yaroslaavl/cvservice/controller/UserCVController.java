@@ -1,10 +1,51 @@
 package org.yaroslaavl.cvservice.controller;
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.yaroslaavl.cvservice.dto.CVSummaryDto;
+import org.yaroslaavl.cvservice.dto.CVUploadDto;
+import org.yaroslaavl.cvservice.service.MinioCVService;
+import org.yaroslaavl.cvservice.validation.CVUpload;
+
+import java.util.List;
+import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/cv/")
+@RequiredArgsConstructor
+@RequestMapping("/api/v1/cv")
 public class UserCVController {
 
+    private final MinioCVService minioCVService;
+
+    @PostMapping("/")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public ResponseEntity<Void> upload(@RequestParam("cv") @CVUpload MultipartFile cv,
+                       @RequestParam("isMain") Boolean isMain) {
+        CVUploadDto cvUploadDto = new CVUploadDto(cv, isMain);
+
+        minioCVService.upload(cvUploadDto);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{cvId}")
+    public ResponseEntity<String> getCvForCandidate(@PathVariable UUID cvId,
+                                                    @RequestParam("isMain") boolean isMain) {
+        return ResponseEntity.ok(minioCVService.getCvForCandidate(cvId, isMain));
+    }
+
+    @GetMapping("/")
+    public ResponseEntity<List<CVSummaryDto>> findAllCandidateCvs() {
+        return ResponseEntity.ok(minioCVService.findAllCandidateCvs());
+    }
+
+    @DeleteMapping("/{isMain}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public ResponseEntity<Void> remove(@PathVariable boolean isMain) {
+        minioCVService.remove(isMain);
+        return ResponseEntity.noContent().build();
+    }
 }
+
