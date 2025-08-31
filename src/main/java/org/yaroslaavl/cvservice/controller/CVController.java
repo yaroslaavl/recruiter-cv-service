@@ -16,7 +16,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/cv")
-public class UserCVController {
+public class CVController {
 
     private final MinioCVService minioCVService;
 
@@ -30,10 +30,15 @@ public class UserCVController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/{cvId}")
+    @GetMapping("/{cvId}/candidate")
     public ResponseEntity<String> getCvForCandidate(@PathVariable UUID cvId,
                                                     @RequestParam("isMain") boolean isMain) {
         return ResponseEntity.ok(minioCVService.getCvForCandidate(cvId, isMain));
+    }
+
+    @GetMapping("/{cvId}/recruiter")
+    public ResponseEntity<String> getCvForRecruiter(@PathVariable UUID cvId) {
+        return ResponseEntity.ok(minioCVService.getCvForRecruiter(cvId));
     }
 
     @GetMapping("/")
