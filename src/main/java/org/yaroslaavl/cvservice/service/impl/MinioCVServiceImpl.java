@@ -67,7 +67,7 @@ public class MinioCVServiceImpl implements MinioCVService {
 
             UserCV userCV = UserCV.builder()
                     .isMain(cvUploadDto.isMain())
-                    .userId(getAuthenticatedUserSubOrToken(Boolean.FALSE))
+                    .userId(getAuthenticatedUserSubOrToken())
                     .filePath(cvLink)
                     .build();
 
@@ -83,7 +83,7 @@ public class MinioCVServiceImpl implements MinioCVService {
     public void remove(boolean isMain) {
         checkUserAccountStatus();
 
-        String userId = getAuthenticatedUserSubOrToken(Boolean.FALSE);
+        String userId = getAuthenticatedUserSubOrToken();
         UserCV userCV = userCVRepository.findByIsMainAndUserId(isMain, userId)
                 .orElseThrow(() -> new EntityNotFoundException("CV not found"));
 
@@ -111,7 +111,7 @@ public class MinioCVServiceImpl implements MinioCVService {
 
         checkUserAccountStatus();
 
-        String userId = getAuthenticatedUserSubOrToken(Boolean.FALSE);
+        String userId = getAuthenticatedUserSubOrToken();
         String minioCV = getMinioCV(userId, isMain);
 
         UserCV userCV = userCVRepository.findByFilePath(minioUrl + bucket + "/" + minioCV)
@@ -124,15 +124,18 @@ public class MinioCVServiceImpl implements MinioCVService {
         return generatePresignedUrl(minioCV);
     }
 
-    //TODO
     @Override
     public String getCvForRecruiter(UUID cvId) {
-        return "";
+        UserCV userCV = userCVRepository.findById(cvId)
+                .orElseThrow(() -> new EntityNotFoundException("CV not found"));
+
+        String minioCV = getMinioCV(userCV.getUserId(), userCV.getIsMain());
+        return generatePresignedUrl(minioCV);
     }
 
     @Override
     public List<CVSummaryDto> findAllCandidateCvs() {
-        List<UserCV> allUserCvs = userCVRepository.findAllByUserId(getAuthenticatedUserSubOrToken(Boolean.FALSE));
+        List<UserCV> allUserCvs = userCVRepository.findAllByUserId(getAuthenticatedUserSubOrToken());
         return userCVMapper.toSummaryDto(allUserCvs);
     }
 
@@ -143,7 +146,7 @@ public class MinioCVServiceImpl implements MinioCVService {
 
     @SneakyThrows
     private String uploadMinioCv(MultipartFile cvUpload, Boolean isMain) {
-        if (isMaxElementsReached(getAuthenticatedUserSubOrToken(Boolean.FALSE))) {
+        if (isMaxElementsReached(getAuthenticatedUserSubOrToken())) {
             throw new OutOfQuantityException("Max elements reached");
         }
 
@@ -153,7 +156,7 @@ public class MinioCVServiceImpl implements MinioCVService {
                 minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
             }
 
-            return storeCvInMinio(cvUpload, isMain, getAuthenticatedUserSubOrToken(Boolean.FALSE));
+            return storeCvInMinio(cvUpload, isMain, getAuthenticatedUserSubOrToken());
         } catch (MinioException me) {
             log.warn("Error occurred: {}", String.valueOf(me));
             log.warn("HTTP trace: {}", me.httpTrace());
@@ -232,10 +235,10 @@ public class MinioCVServiceImpl implements MinioCVService {
         return maxElements == elements;
     }
 
-    private String getAuthenticatedUserSubOrToken(Boolean isTokenNeeded) {
+    private String getAuthenticatedUserSubOrToken() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication instanceof JwtAuthenticationToken jwt) {
-            return isTokenNeeded ? jwt.getToken().getTokenValue() : jwt.getTokenAttributes().get(SUB).toString();
+            return jwt.getTokenAttributes().get(SUB).toString();
         }
 
         log.warn("Authentication is not JwtAuthenticationToken or it has no sub");
@@ -243,8 +246,7 @@ public class MinioCVServiceImpl implements MinioCVService {
     }
 
     private void checkUserAccountStatus() {
-        boolean isExistsAndApproved = userFeignClient.isApproved(tokenType + " " + getAuthenticatedUserSubOrToken(Boolean.TRUE),
-                getAuthenticatedUserSubOrToken(Boolean.FALSE));
+        boolean isExistsAndApproved = userFeignClient.isApproved(getAuthenticatedUserSubOrToken());
 
         if (!isExistsAndApproved) {
             throw new CVUploadException("User is not approved or not exists");
