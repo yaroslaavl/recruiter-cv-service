@@ -57,6 +57,14 @@ public class MinioCVServiceImpl implements MinioCVService {
     private static final String SUB = "sub";
     private static final String EXTENSION = ".pdf";
 
+    /**
+     * Uploads the user's CV to the storage and saves the corresponding information in the database.
+     *
+     * @param cvUploadDto Object containing CV file and associated metadata such as whether it is the main CV.
+     *                    The CV file is uploaded and a link is generated, which is stored along with the user's ID.
+     *                    The user must be authenticated and have an active account to perform this operation.
+     * @throws CVUploadException if an unexpected error occurs during the CV upload process.
+     */
     @Override
     @Transactional
     public void upload(CVUploadDto cvUploadDto) {
@@ -78,6 +86,19 @@ public class MinioCVServiceImpl implements MinioCVService {
         }
     }
 
+    /**
+     * Removes the CV associated with the authenticated user.
+     * This method verifies user account status, retrieves the CV by the specified
+     * `isMain` parameter, validates user permissions, deletes the associated file
+     * from storage (if it exists), and removes the CV record from the database.
+     *
+     * @param isMain Flag indicating whether the CV to be removed is the main CV
+     *               for the authenticated user.
+     * @throws EntityNotFoundException If the CV associated with the specified
+     *                                 `isMain` parameter and user ID is not found.
+     * @throws UserHasNoPermissionException If the authenticated user is not
+     *                                       permitted to delete the CV.
+     */
     @Override
     @Transactional
     public void remove(boolean isMain) {
@@ -103,6 +124,15 @@ public class MinioCVServiceImpl implements MinioCVService {
         log.info("Deleted CV record from DB for user {} (isMain={})", userId, isMain);
     }
 
+    /**
+     * Retrieves the CV file URL for a specified candidate.
+     *
+     * @param cvId The UUID of the CV to be retrieved.
+     * @param isMain A boolean flag indicating if the main CV should be retrieved.
+     * @return A presigned URL to access the requested CV file.
+     * @throws EntityNotFoundException If the specified CV is not found in the repository.
+     * @throws UserHasNoPermissionException If the authenticated user does not have permission to access the CV.
+     */
     @Override
     @SneakyThrows
     public String getCvForCandidate(UUID cvId, boolean isMain) {
@@ -124,6 +154,13 @@ public class MinioCVServiceImpl implements MinioCVService {
         return generatePresignedUrl(minioCV);
     }
 
+    /**
+     * Retrieves a CV for a recruiter by its unique identifier.
+     *
+     * @param cvId the unique identifier of the CV to be retrieved.
+     * @return a presigned URL for accessing the CV.
+     * @throws EntityNotFoundException if the CV with the specified identifier is not found.
+     */
     @Override
     public String getCvForRecruiter(UUID cvId) {
         UserCV userCV = userCVRepository.findById(cvId)
@@ -133,6 +170,12 @@ public class MinioCVServiceImpl implements MinioCVService {
         return generatePresignedUrl(minioCV);
     }
 
+    /**
+     * Retrieves all CV summaries for the authenticated candidate.
+     * Fetches all CVs associated with the currently logged-in user and converts them to a list of CV summary DTOs.
+     *
+     * @return a list of CVSummaryDto objects representing the summaries of all CVs associated with the authenticated user
+     */
     @Override
     public List<CVSummaryDto> findAllCandidateCvs() {
         List<UserCV> allUserCvs = userCVRepository.findAllByUserId(getAuthenticatedUserSubOrToken());
