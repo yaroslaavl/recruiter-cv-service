@@ -17,12 +17,12 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.yaroslaavl.cvservice.database.entity.UserCV;
-import org.yaroslaavl.cvservice.database.repository.UserCVRepository;
+import org.yaroslaavl.cvservice.database.repository.CVRepository;
 import org.yaroslaavl.cvservice.dto.CVSummaryDto;
 import org.yaroslaavl.cvservice.dto.CVUploadDto;
 import org.yaroslaavl.cvservice.exception.*;
 import org.yaroslaavl.cvservice.feignClient.user.UserFeignClient;
-import org.yaroslaavl.cvservice.mapper.UserCVMapper;
+import org.yaroslaavl.cvservice.mapper.CVMapper;
 import org.yaroslaavl.cvservice.service.MinioCVService;
 
 import java.text.MessageFormat;
@@ -46,12 +46,9 @@ public class MinioCVServiceImpl implements MinioCVService {
     @Value("${bucket.folder}")
     private String folder;
 
-    @Value("${feign.token-type}")
-    private String tokenType;
-
     private final MinioClient minioClient;
-    private final UserCVMapper userCVMapper;
-    private final UserCVRepository userCVRepository;
+    private final CVMapper CVMapper;
+    private final CVRepository CVRepository;
     private final UserFeignClient userFeignClient;
 
     private static final String SUB = "sub";
@@ -73,13 +70,18 @@ public class MinioCVServiceImpl implements MinioCVService {
         try {
             String cvLink = uploadMinioCv(cvUploadDto.cv(), cvUploadDto.isMain());
 
+            if (Objects.requireNonNull(cvUploadDto.cv().getOriginalFilename()).length() >= 100) {
+                throw new CVUploadException("File name is too long");
+            }
+
             UserCV userCV = UserCV.builder()
                     .isMain(cvUploadDto.isMain())
+                    .fileName(cvUploadDto.cv().getOriginalFilename().replace(EXTENSION, ""))
                     .userId(getAuthenticatedUserSubOrToken())
                     .filePath(cvLink)
                     .build();
 
-            userCVRepository.save(userCV);
+            CVRepository.save(userCV);
         } catch (Exception e) {
             log.error("Unexpected error during cv upload for user", e);
             throw new CVUploadException("Unexpected error during cv upload");
@@ -105,7 +107,7 @@ public class MinioCVServiceImpl implements MinioCVService {
         checkUserAccountStatus();
 
         String userId = getAuthenticatedUserSubOrToken();
-        UserCV userCV = userCVRepository.findByIsMainAndUserId(isMain, userId)
+        UserCV userCV = CVRepository.findByIsMainAndUserId(isMain, userId)
                 .orElseThrow(() -> new EntityNotFoundException("CV not found"));
 
         if (!Objects.equals(userCV.getUserId(), userId)) {
@@ -120,7 +122,7 @@ public class MinioCVServiceImpl implements MinioCVService {
             log.warn("CV file not found in MinIO: {}", minioCV);
         }
 
-        userCVRepository.delete(userCV);
+        CVRepository.delete(userCV);
         log.info("Deleted CV record from DB for user {} (isMain={})", userId, isMain);
     }
 
@@ -136,7 +138,7 @@ public class MinioCVServiceImpl implements MinioCVService {
     @Override
     @SneakyThrows
     public String getCvForCandidate(UUID cvId, boolean isMain) {
-        userCVRepository.findById(cvId)
+        CVRepository.findById(cvId)
                         .orElseThrow(() -> new EntityNotFoundException("CV not found"));
 
         checkUserAccountStatus();
@@ -144,11 +146,11 @@ public class MinioCVServiceImpl implements MinioCVService {
         String userId = getAuthenticatedUserSubOrToken();
         String minioCV = getMinioCV(userId, isMain);
 
-        UserCV userCV = userCVRepository.findByFilePath(minioUrl + bucket + "/" + minioCV)
+        UserCV userCV = CVRepository.findByFilePath(minioUrl + bucket + "/" + minioCV)
                 .orElseThrow(() -> new EntityNotFoundException("CV not found"));
 
         if (!Objects.equals(userCV.getUserId(), userId)) {
-            throw new UserHasNoPermissionException("User has no permission to read this cv");
+            throw new UserHasNoPermissionException("User has no permission to response this cv");
         }
 
         return generatePresignedUrl(minioCV);
@@ -163,7 +165,7 @@ public class MinioCVServiceImpl implements MinioCVService {
      */
     @Override
     public String getCvForRecruiter(UUID cvId) {
-        UserCV userCV = userCVRepository.findById(cvId)
+        UserCV userCV = CVRepository.findById(cvId)
                 .orElseThrow(() -> new EntityNotFoundException("CV not found"));
 
         String minioCV = getMinioCV(userCV.getUserId(), userCV.getIsMain());
@@ -178,8 +180,8 @@ public class MinioCVServiceImpl implements MinioCVService {
      */
     @Override
     public List<CVSummaryDto> findAllCandidateCvs() {
-        List<UserCV> allUserCvs = userCVRepository.findAllByUserId(getAuthenticatedUserSubOrToken());
-        return userCVMapper.toSummaryDto(allUserCvs);
+        List<UserCV> allUserCvs = CVRepository.findAllByUserId(getAuthenticatedUserSubOrToken());
+        return CVMapper.toSummaryDto(allUserCvs);
     }
 
     private String getMinioCV(String userId, boolean isMain) {
@@ -272,7 +274,7 @@ public class MinioCVServiceImpl implements MinioCVService {
     }
 
     private boolean isMaxElementsReached(String userId) {
-        long elements = userCVRepository.countByUserId(userId);
+        long elements = CVRepository.countByUserId(userId);
         log.info("Elements: {}", elements);
 
         return maxElements == elements;

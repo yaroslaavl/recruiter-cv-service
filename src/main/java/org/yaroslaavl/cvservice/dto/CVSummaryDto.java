@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record CVSummaryDto(
         @NotNull UUID cvId,
+        @NotNull String fileName,
         @NotNull Boolean isMain,
         @NotNull LocalDateTime uploadedAt
 ) { }

@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface UserCVRepository extends JpaRepository<UserCV, UUID> {
+public interface CVRepository extends JpaRepository<UserCV, UUID> {
 
     long countByUserId(String userId);
 

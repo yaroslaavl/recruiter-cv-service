@@ -1,6 +1,7 @@
 package org.yaroslaavl.cvservice.database.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.ColumnDefault;
 
@@ -19,9 +20,6 @@ public class UserCV {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "uploaded_at", updatable = false)
-    private LocalDateTime uploadedAt;
-
     @Column(name = "user_id", nullable = false)
     private String userId;
 
@@ -31,6 +29,13 @@ public class UserCV {
     @ColumnDefault(value = "false")
     @Column(name = "is_main", nullable = false)
     private Boolean isMain;
+
+    @Size(max = 100)
+    @Column(name = "file_name", nullable = false)
+    private String fileName;
+
+    @Column(name = "uploaded_at", updatable = false)
+    private LocalDateTime uploadedAt;
 
     @PrePersist
     public void setCreationDateTime() {
