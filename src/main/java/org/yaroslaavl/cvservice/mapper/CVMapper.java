@@ -8,7 +8,7 @@ import org.yaroslaavl.cvservice.dto.CVSummaryDto;
 import java.util.List;
 
 @Mapper(componentModel = "spring")
-public interface UserCVMapper {
+public interface CVMapper {
 
     @Mapping(target = "cvId", source = "id")
     CVSummaryDto toSummaryDto(UserCV userCV);
