@@ -20,7 +20,7 @@ public class CVController {
 
     private final MinioCVService minioCVService;
 
-    @PostMapping("/")
+    @PostMapping("/upload")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ResponseEntity<Void> upload(@RequestParam("cv") @CVUpload MultipartFile cv,
                        @RequestParam("isMain") Boolean isMain) {
@@ -41,7 +41,7 @@ public class CVController {
         return ResponseEntity.ok(minioCVService.getCvForRecruiter(cvId));
     }
 
-    @GetMapping("/")
+    @GetMapping("/info")
     public ResponseEntity<List<CVSummaryDto>> findAllCandidateCvs() {
         return ResponseEntity.ok(minioCVService.findAllCandidateCvs());
     }

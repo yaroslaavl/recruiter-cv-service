@@ -31,8 +31,13 @@ public class SecurityConfig {
                                 .requestMatchers(
                                         "/error",
                                         "/actuator/health").permitAll()
-                                .requestMatchers("/api/v1/cv/**").hasRole("VERIFIED_CANDIDATE")
-                                .requestMatchers("/api/v1/cv/*/recruiter").hasRole("INTERNAL_SERVICE")
+                                .requestMatchers(
+                                        "/api/v1/cv/*/recruiter").hasRole("INTERNAL_SERVICE")
+                                .requestMatchers(
+                                        "/api/v1/cv/upload",
+                                        "/api/v1/cv/*",
+                                        "/api/v1/cv/*/candidate"
+                                        ).hasRole("VERIFIED_CANDIDATE")
                 );
 
         return http.build();
