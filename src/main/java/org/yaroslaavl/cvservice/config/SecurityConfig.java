@@ -30,6 +30,9 @@ public class SecurityConfig {
                         request -> request
                                 .requestMatchers(
                                         "/error",
+                                        "/v3/api-docs/**",
+                                        "/swagger-ui.html",
+                                        "/swagger-ui/**",
                                         "/actuator/health").permitAll()
                                 .requestMatchers(
                                         "/api/v1/cv/*/recruiter").hasRole("INTERNAL_SERVICE")
