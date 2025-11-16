@@ -68,11 +68,11 @@ public class MinioCVServiceImpl implements MinioCVService {
         checkUserAccountStatus();
 
         try {
-            String cvLink = uploadMinioCv(cvUploadDto.cv(), cvUploadDto.isMain());
-
             if (Objects.requireNonNull(cvUploadDto.cv().getOriginalFilename()).length() >= 100) {
                 throw new CVUploadException("File name is too long");
             }
+
+            String cvLink = uploadMinioCv(cvUploadDto.cv(), cvUploadDto.isMain());
 
             UserCV userCV = UserCV.builder()
                     .isMain(cvUploadDto.isMain())
