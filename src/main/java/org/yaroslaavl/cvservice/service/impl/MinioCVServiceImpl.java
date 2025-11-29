@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.yaroslaavl.cvservice.database.entity.UserCV;
 import org.yaroslaavl.cvservice.database.repository.CVRepository;
+import org.yaroslaavl.cvservice.dto.CVApplicationDto;
 import org.yaroslaavl.cvservice.dto.CVSummaryDto;
 import org.yaroslaavl.cvservice.dto.CVUploadDto;
 import org.yaroslaavl.cvservice.exception.*;
@@ -157,19 +158,19 @@ public class MinioCVServiceImpl implements MinioCVService {
     }
 
     /**
-     * Retrieves a CV for a recruiter by its unique identifier.
+     * Retrieves a CV by its unique identifier.
      *
      * @param cvId the unique identifier of the CV to be retrieved.
      * @return a presigned URL for accessing the CV.
      * @throws EntityNotFoundException if the CV with the specified identifier is not found.
      */
     @Override
-    public String getCvForRecruiter(UUID cvId) {
+    public CVApplicationDto getCvForApplicationAction(UUID cvId) {
         UserCV userCV = CVRepository.findById(cvId)
                 .orElseThrow(() -> new EntityNotFoundException("CV not found"));
 
         String minioCV = getMinioCV(userCV.getUserId(), userCV.getIsMain());
-        return generatePresignedUrl(minioCV);
+        return new CVApplicationDto(userCV.getId(), generatePresignedUrl(minioCV), userCV.getFileName());
     }
 
     /**

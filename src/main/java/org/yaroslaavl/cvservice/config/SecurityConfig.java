@@ -35,7 +35,7 @@ public class SecurityConfig {
                                         "/swagger-ui/**",
                                         "/actuator/health").permitAll()
                                 .requestMatchers(
-                                        "/api/v1/cv/*/recruiter").hasRole("INTERNAL_SERVICE")
+                                        "/api/v1/cv/*/application").hasAnyRole("INTERNAL_SERVICE", "VERIFIED_CANDIDATE", "VERIFIED_RECRUITER")
                                 .requestMatchers(
                                         "/api/v1/cv/upload",
                                         "/api/v1/cv/*",

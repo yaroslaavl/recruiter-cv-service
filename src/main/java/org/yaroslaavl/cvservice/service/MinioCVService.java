@@ -1,5 +1,6 @@
 package org.yaroslaavl.cvservice.service;
 
+import org.yaroslaavl.cvservice.dto.CVApplicationDto;
 import org.yaroslaavl.cvservice.dto.CVSummaryDto;
 import org.yaroslaavl.cvservice.dto.CVUploadDto;
 
@@ -16,5 +17,5 @@ public interface MinioCVService {
 
     String getCvForCandidate(UUID cvId, boolean isMain);
 
-    String getCvForRecruiter(UUID cvId);
+    CVApplicationDto getCvForApplicationAction(UUID cvId);
 }

@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.yaroslaavl.cvservice.dto.CVApplicationDto;
 import org.yaroslaavl.cvservice.dto.CVSummaryDto;
 import org.yaroslaavl.cvservice.dto.CVUploadDto;
 import org.yaroslaavl.cvservice.service.MinioCVService;
@@ -36,9 +37,9 @@ public class CVController {
         return ResponseEntity.ok(minioCVService.getCvForCandidate(cvId, isMain));
     }
 
-    @GetMapping("/{cvId}/recruiter")
-    public ResponseEntity<String> getCvForRecruiter(@PathVariable UUID cvId) {
-        return ResponseEntity.ok(minioCVService.getCvForRecruiter(cvId));
+    @GetMapping("/{cvId}/application")
+    public ResponseEntity<CVApplicationDto> getCvForApplicationAction(@PathVariable UUID cvId) {
+        return ResponseEntity.ok(minioCVService.getCvForApplicationAction(cvId));
     }
 
     @GetMapping("/info")
