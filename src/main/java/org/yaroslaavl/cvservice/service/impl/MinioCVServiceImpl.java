@@ -73,13 +73,13 @@ public class MinioCVServiceImpl implements MinioCVService {
                 throw new CVUploadException("File name is too long");
             }
 
-            String cvLink = uploadMinioCv(cvUploadDto.cv(), cvUploadDto.isMain());
+            String objectName  = uploadMinioCv(cvUploadDto.cv(), cvUploadDto.isMain());
 
             UserCV userCV = UserCV.builder()
                     .isMain(cvUploadDto.isMain())
                     .fileName(cvUploadDto.cv().getOriginalFilename().replace(EXTENSION, ""))
                     .userId(getAuthenticatedUserSubOrToken())
-                    .filePath(cvLink)
+                    .filePath(objectName)
                     .build();
 
             CVRepository.save(userCV);
@@ -115,14 +115,7 @@ public class MinioCVServiceImpl implements MinioCVService {
             throw new UserHasNoPermissionException("User has no permission to delete this cv");
         }
 
-        String minioCV = getMinioCV(userId, isMain);
-        if (minioCV != null && !minioCV.isEmpty()) {
-            removeObject(minioCV);
-            log.info("Removed CV from MinIO: {}", minioCV);
-        } else {
-            log.warn("CV file not found in MinIO: {}", minioCV);
-        }
-
+        removeObject(userCV.getFilePath());
         CVRepository.delete(userCV);
         log.info("Deleted CV record from DB for user {} (isMain={})", userId, isMain);
     }
@@ -139,22 +132,18 @@ public class MinioCVServiceImpl implements MinioCVService {
     @Override
     @SneakyThrows
     public String getCvForCandidate(UUID cvId, boolean isMain) {
-        CVRepository.findById(cvId)
-                        .orElseThrow(() -> new EntityNotFoundException("CV not found"));
-
         checkUserAccountStatus();
 
         String userId = getAuthenticatedUserSubOrToken();
-        String minioCV = getMinioCV(userId, isMain);
 
-        UserCV userCV = CVRepository.findByFilePath(minioUrl + bucket + "/" + minioCV)
+        UserCV cv = CVRepository.findById(cvId)
                 .orElseThrow(() -> new EntityNotFoundException("CV not found"));
 
-        if (!Objects.equals(userCV.getUserId(), userId)) {
+        if (!Objects.equals(cv.getUserId(), userId)) {
             throw new UserHasNoPermissionException("User has no permission to response this cv");
         }
 
-        return generatePresignedUrl(minioCV);
+        return generatePresignedUrl(cv.getFilePath());
     }
 
     /**
@@ -169,8 +158,11 @@ public class MinioCVServiceImpl implements MinioCVService {
         UserCV userCV = CVRepository.findById(cvId)
                 .orElseThrow(() -> new EntityNotFoundException("CV not found"));
 
-        String minioCV = getMinioCV(userCV.getUserId(), userCV.getIsMain());
-        return new CVApplicationDto(userCV.getId(), generatePresignedUrl(minioCV), userCV.getFileName());
+        return new CVApplicationDto(
+                userCV.getId(),
+                generatePresignedUrl(userCV.getFilePath()),
+                userCV.getFileName()
+        );
     }
 
     /**
@@ -185,11 +177,6 @@ public class MinioCVServiceImpl implements MinioCVService {
         return CVMapper.toSummaryDto(allUserCvs);
     }
 
-    private String getMinioCV(String userId, boolean isMain) {
-        String formattedFolder = MessageFormat.format(folder, userId);
-        return objectExist(formattedFolder, isMain);
-    }
-
     @SneakyThrows
     private String uploadMinioCv(MultipartFile cvUpload, Boolean isMain) {
         if (isMaxElementsReached(getAuthenticatedUserSubOrToken())) {
@@ -197,15 +184,15 @@ public class MinioCVServiceImpl implements MinioCVService {
         }
 
         try {
-            boolean isPresent = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build());
-            if (!isPresent) {
-                minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
+            if (!minioClient.bucketExists(
+                    BucketExistsArgs.builder().bucket(bucket).build())) {
+                minioClient.makeBucket(
+                        MakeBucketArgs.builder().bucket(bucket).build());
             }
 
             return storeCvInMinio(cvUpload, isMain, getAuthenticatedUserSubOrToken());
-        } catch (MinioException me) {
-            log.warn("Error occurred: {}", String.valueOf(me));
-            log.warn("HTTP trace: {}", me.httpTrace());
+        } catch (MinioException e) {
+            log.error("MinIO error", e);
             throw new FileStorageException("Could not store file in MinIO");
         }
     }
@@ -221,11 +208,11 @@ public class MinioCVServiceImpl implements MinioCVService {
     }
 
     @SneakyThrows
-    private void removeObject(String file) {
+    private void removeObject(String objectName) {
         try {
             minioClient.removeObject(RemoveObjectArgs.builder()
                     .bucket(bucket)
-                    .object(file)
+                    .object(objectName)
                     .build());
         } catch (MinioException e) {
             log.warn("Failed to remove object from storage", e);
@@ -247,65 +234,61 @@ public class MinioCVServiceImpl implements MinioCVService {
 
         putObject(bucket, formattedFolder, isMain, file);
 
-        return minioUrl + bucket + "/" + formattedFolder + (isMain ? "main" : "notMain") + EXTENSION;
+        return formattedFolder + (isMain ? "main" : "notMain") + EXTENSION;
     }
 
     private String objectExist(String formattedFolder, boolean isMain) {
         try {
             Iterable<Result<Item>> results =
-                    minioClient.listObjects(ListObjectsArgs.builder().bucket(bucket).prefix(formattedFolder + (isMain ? "main" : "notMain")).build());
+                    minioClient.listObjects(
+                            ListObjectsArgs.builder()
+                                    .bucket(bucket)
+                                    .prefix(formattedFolder + (isMain ? "main" : "notMain"))
+                                    .build()
+                    );
+
             for (Result<Item> result : results) {
                 Item item = result.get();
-                if (item.objectName().startsWith(formattedFolder + (isMain ? "main" : "notMain"))) {
-                    return item.objectName();
-                }
+                return item.objectName();
             }
-
             return null;
         } catch (ErrorResponseException e) {
             if ("NoSuchKey".equals(e.errorResponse().code())) {
                 return null;
-            } else {
-                throw new RuntimeException("Error occurred while checking object existence", e);
             }
+            throw new RuntimeException(e);
         } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException(e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
     private boolean isMaxElementsReached(String userId) {
-        long elements = CVRepository.countByUserId(userId);
-        log.info("Elements: {}", elements);
-
-        return maxElements == elements;
+        return CVRepository.countByUserId(userId) >= maxElements;
     }
 
     private String getAuthenticatedUserSubOrToken() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication instanceof JwtAuthenticationToken jwt) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwt) {
             return jwt.getTokenAttributes().get(SUB).toString();
         }
-
-        log.warn("Authentication is not JwtAuthenticationToken or it has no sub");
-        return null;
+        throw new RuntimeException("User is not authenticated");
     }
 
     private void checkUserAccountStatus() {
-        boolean isExistsAndApproved = userFeignClient.isApproved(getAuthenticatedUserSubOrToken());
-
-        if (!isExistsAndApproved) {
+        if (!userFeignClient.isApproved(getAuthenticatedUserSubOrToken())) {
             throw new CVUploadException("User is not approved or not exists");
         }
     }
 
     @SneakyThrows
-    private String generatePresignedUrl(String minioCV) {
-        return minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
-                .bucket(bucket)
-                .method(Method.GET)
-                .object(minioCV)
-                .expiry(30, TimeUnit.MINUTES)
-                .build());
+    private String generatePresignedUrl(String objectName) {
+        return minioClient.getPresignedObjectUrl(
+                GetPresignedObjectUrlArgs.builder()
+                        .bucket(bucket)
+                        .method(Method.GET)
+                        .object(objectName)
+                        .expiry(30, TimeUnit.MINUTES)
+                        .build()
+        );
     }
 }
